@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "immer": "^11.1.4",
     "next": "14.2.35",
     "prettier": "^3.8.1",
     "react": "^18",
