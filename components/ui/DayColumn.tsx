@@ -152,10 +152,9 @@ export function DayColumn({
   const hebrewDate = getHebrewDate(date);
 
   const parentCoverage = computeParentCoverage(date, events);
-  const allEvents = [...events, ...parentCoverage];
-  const gaps = computeGaps(date, allEvents);
+  const gaps = computeGaps(date, events);
 
-  const displayEvents = [...allEvents, ...gaps].sort(function (a, b) {
+  const displayEvents = [...events, ...parentCoverage, ...gaps].sort(function (a, b) {
     return a.startTime.localeCompare(b.startTime);
   });
 

@@ -143,9 +143,43 @@ function findUncoveredIntervals(
 }
 
 /**
- * Generates auto parent-coverage CalendarEvents for every minute of the given
- * date that is NOT covered by a shift event.
+ * Returns the later of two HH:MM time strings.
+ */
+function maxTime(a: string, b: string): string {
+  return a > b ? a : b;
+}
+
+/**
+ * Returns the earlier of two HH:MM time strings.
+ */
+function minTime(a: string, b: string): string {
+  return a < b ? a : b;
+}
+
+/**
+ * Returns true if two time ranges overlap.
+ * Times are HH:MM strings (24h format).
+ */
+function doTimesOverlap(
+  slotStart: string,
+  slotEnd: string,
+  eventStart: string,
+  eventEnd: string
+): boolean {
+  return slotStart < eventEnd && slotEnd > eventStart;
+}
+
+/** Minute value of 23:59, used for the trailing-block guard. */
+const DAY_END_GUARD = 23 * 60 + 59;
+
+/** Event types that count as "covered" (not needing parents or gap). */
+const COVERAGE_TYPES = new Set(['shift', 'treatment', 'visit']);
+
+/**
+ * Generates auto parent-coverage CalendarEvents for every uncovered slot
+ * on the given date where NO parent-note event overlaps.
  *
+ * Uncovered means not covered by shift, treatment, or visit.
  * Parent-coverage uses familyMemberId 'parents' (a fixed special ID).
  * These events are never stored — they are computed on demand.
  */
@@ -153,46 +187,90 @@ export function computeParentCoverage(
   date: string,
   events: CalendarEvent[]
 ): CalendarEvent[] {
-  const shiftEvents = events.filter(function (e) {
-    return e.type === 'shift';
+  const coverageEvents = events.filter(function (e) {
+    return COVERAGE_TYPES.has(e.type);
   });
 
-  const uncovered = findUncoveredIntervals(shiftEvents, 0, DAY_END_MINUTES);
-
-  return uncovered.map(function (interval) {
-    return {
-      id: `pc-${date}-${interval.start}`,
-      date,
-      startTime: minutesToTime(interval.start),
-      endTime: intervalEndToTime(interval.end),
-      type: 'parent-coverage' as EventType,
-      familyMemberId: 'parents',
-    };
+  const parentNotes = events.filter(function (e) {
+    return e.type === 'parent-note';
   });
+
+  const uncovered = findUncoveredIntervals(coverageEvents, 0, DAY_END_MINUTES);
+
+  return uncovered
+    .filter(function (interval) {
+      if (interval.start >= DAY_END_GUARD) return false;
+
+      const slotStart = minutesToTime(interval.start);
+      const slotEnd = intervalEndToTime(interval.end);
+
+      if (slotStart === slotEnd) return false;
+
+      return !parentNotes.some(function (pn) {
+        return doTimesOverlap(slotStart, slotEnd, pn.startTime, pn.endTime);
+      });
+    })
+    .map(function (interval) {
+      return {
+        id: `pc-${date}-${interval.start}`,
+        date,
+        startTime: minutesToTime(interval.start),
+        endTime: intervalEndToTime(interval.end),
+        type: 'parent-coverage' as EventType,
+        familyMemberId: 'parents',
+      };
+    });
 }
 
 /**
- * Generates gap CalendarEvents for every minute of the given date that is NOT
- * covered by any event (including parent-coverage events).
+ * Generates gap CalendarEvents for every uncovered slot on the given date
+ * where at least one parent-note event overlaps (both parents are busy).
  *
- * In a valid schedule, gaps should never appear — parent-coverage fills all
- * non-shift time. Gap blocks are rendered as red 'חסר כיסוי משמרת' indicators.
- * These events are never stored — they are computed on demand.
+ * Uncovered means not covered by shift, treatment, or visit.
+ * Gap blocks render as red 'חסר כיסוי משמרת' indicators and are never stored.
  */
 export function computeGaps(
   date: string,
-  allEvents: CalendarEvent[]
+  events: CalendarEvent[]
 ): CalendarEvent[] {
-  const uncovered = findUncoveredIntervals(allEvents, 0, DAY_END_MINUTES);
+  const coverageEvents = events.filter(function (e) {
+    return COVERAGE_TYPES.has(e.type);
+  });
 
-  return uncovered.map(function (interval) {
-    return {
-      id: `gap-${date}-${interval.start}`,
-      date,
-      startTime: minutesToTime(interval.start),
-      endTime: intervalEndToTime(interval.end),
-      type: 'gap' as EventType,
-      familyMemberId: null,
-    };
+  const parentNotes = events.filter(function (e) {
+    return e.type === 'parent-note';
+  });
+
+  const uncovered = findUncoveredIntervals(coverageEvents, 0, DAY_END_MINUTES);
+
+  return uncovered.flatMap(function (interval) {
+    if (interval.start >= DAY_END_GUARD) return [];
+
+    const slotStart = minutesToTime(interval.start);
+    const slotEnd = intervalEndToTime(interval.end);
+
+    if (slotStart === slotEnd) return [];
+
+    return parentNotes
+      .filter(function (pn) {
+        return doTimesOverlap(slotStart, slotEnd, pn.startTime, pn.endTime);
+      })
+      .flatMap(function (pn) {
+        const gapStart = maxTime(slotStart, pn.startTime);
+        const gapEnd = minTime(slotEnd, pn.endTime);
+
+        if (gapStart === gapEnd) return [];
+
+        return [
+          {
+            id: `gap-${date}-${interval.start}-${pn.id}`,
+            date,
+            startTime: gapStart,
+            endTime: gapEnd,
+            type: 'gap' as EventType,
+            familyMemberId: null,
+          },
+        ];
+      });
   });
 }
