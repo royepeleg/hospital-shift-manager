@@ -69,31 +69,42 @@ src/
 
 ## Standard Hebrew UI Translations (always use these exact strings)
 
-| Concept     | Hebrew         |
-|-------------|----------------|
-| Morning     | בוקר           |
-| Afternoon   | צהריים         |
-| Night       | לילה           |
-| Unassigned  | לא שובץ        |
-| Today       | היום           |
-| App title   | מנהל משמרות משפחתי |
-| Subtitle    | לוח תורנויות ליד המיטה |
+| Concept    | Hebrew                 |
+| ---------- | ---------------------- |
+| Morning    | בוקר                   |
+| Afternoon  | צהריים                 |
+| Night      | לילה                   |
+| Unassigned | לא שובץ                |
+| Today      | היום                   |
+| App title  | מנהל משמרות משפחתי     |
+| Subtitle   | לוח תורנויות ליד המיטה |
+
+## Week Structure (strictly enforced)
+
+- Week starts on **Sunday** and ends on **Saturday**
+- Use `getCurrentWeekSunday()` everywhere — `getCurrentWeekMonday()` must not exist
+- Day order in calendar: ראשון, שני, שלישי, רביעי, חמישי, שישי, שבת
 
 ## Hebrew Calendar
 
 - Every day column header shows **both** the Gregorian date and the Hebrew date
-- Compute Hebrew dates using `Intl.DateTimeFormat` with `{ calendar: 'hebrew' }` and locale `'he-IL'`
+- Compute Hebrew dates using `Intl.DateTimeFormat` with these exact options:
+  ```js
+  { calendar: 'hebrew', numberingSystem: 'latn', day: 'numeric', month: 'long' }
+  ```
+  locale: `'he-IL'`
+- Always use **numeric** Hebrew date — never letter-based gematria (e.g. `2 אדר` not `ב׳ אדר`)
 - All Hebrew date logic lives in `utils/hebrewDateUtils.ts` — do not inline it in components
 
 ## Event Types (strictly enforced — never change these colors)
 
-| Type              | Hebrew                | Color     |
-|-------------------|-----------------------|-----------|
-| `shift`           | משמרת                 | `#1a73e8` |
-| `treatment`       | טיפול                 | `#e67c00` |
-| `visit`           | ביקור                 | `#0f9d58` |
-| `parent-note`     | הורים                 | `#a142f4` |
-| `parent-coverage` | הורים עם המטופל       | `#fbbc04` |
+| Type              | Hebrew        | Color     |
+| ----------------- | ------------- | --------- |
+| `shift`           | משמרת         | `#1a73e8` |
+| `treatment`       | טיפול         | `#e67c00` |
+| `visit`           | ביקור         | `#0f9d58` |
+| `parent-note`     | הורים         | `#a142f4` |
+| `parent-coverage` | הורים עם נווה | `#fbbc04` |
 
 ## Data Model
 
@@ -125,7 +136,10 @@ src/
 ### Mobile Day Navigation
 
 - The ← → arrow buttons navigate one day at a time
-- Swiping left → move one day forward; swiping right → move one day back
+- **RTL swipe direction** (strictly enforced):
+  - Swiping **RIGHT** → next day / next week (forward in time)
+  - Swiping **LEFT** → previous day / previous week (back in time)
+  - This is the natural RTL direction — opposite of LTR apps
 - Swipe detection uses native touch events (`onTouchStart`, `onTouchEnd`) — no external library
 - Minimum swipe distance: **50px** to trigger navigation
 - The week range label updates to show just the current day in mobile view
@@ -162,7 +176,7 @@ src/
 - `parent-coverage` is a special `CalendarEvent`:
   - `type`: `'parent-coverage'`
   - `color`: `#fbbc04` (Google yellow)
-  - `label`: הורים עם המטופל
+  - `label`: הורים עם נווה
   - `familyMemberId`: `'parents'` (fixed special ID)
 - Parent coverage events are **auto-generated** — never manually created by users
 - Parent coverage is **never a problem** — it is always valid
@@ -193,10 +207,10 @@ src/
 
 ### Firestore Collections
 
-| Collection  | Documents        |
-|-------------|------------------|
-| `members`   | `FamilyMember`   |
-| `events`    | `CalendarEvent`  |
+| Collection | Documents       |
+| ---------- | --------------- |
+| `members`  | `FamilyMember`  |
+| `events`   | `CalendarEvent` |
 
 ### Firestore Rules
 
@@ -214,3 +228,18 @@ src/
 - Typography: medium weight day headers, small muted-gray shift labels
 - Spacing: dense — Google Calendar is compact, not spacious
 - Mobile: calendar grid wraps in a horizontal scroll container; day columns are exactly 120px wide and never shrink; today's column scrolls into view on mount
+
+## Typography Minimums (strictly enforced)
+
+- Base font size: **16px minimum** — never smaller than 14px on mobile
+- Day number in column header: **24px**
+- Event text: **14px minimum**
+- All form inputs (modal): **16px minimum** — prevents iOS auto-zoom on focus
+
+## Modal Behavior (strictly enforced)
+
+- Modal must **never exceed viewport height**
+- Modal container must have: `max-height: 100dvh` and `overflow-y: auto`
+- All inputs inside modals must have `font-size: 16px` (prevents iOS zoom)
+- **On mobile** (below `md`): modal is full screen — `w-full h-full rounded-none`
+- **On desktop** (`md+`): modal is a centered card — `max-w-sm rounded-2xl`
