@@ -2,17 +2,17 @@ import { addDays } from '@/utils/dateUtils';
 
 /**
  * Returns a formatted Hebrew calendar date string for the given ISO date.
- * E.g. "י״ד באדר תשפ״ו"
- * Uses Intl.DateTimeFormat with the Hebrew calendar.
+ * E.g. "2 אדר" — always numeric, never letter-based gematria.
+ * Uses Intl.DateTimeFormat with the Hebrew calendar and latn numbering system.
  */
 export function getHebrewDate(isoDate: string): string {
   const date = new Date(isoDate);
 
   const formatter = new Intl.DateTimeFormat('he-IL', {
     calendar: 'hebrew',
+    numberingSystem: 'latn',
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
     timeZone: 'UTC',
   });
 

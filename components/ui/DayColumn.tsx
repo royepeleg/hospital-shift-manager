@@ -61,7 +61,7 @@ function EventBlock({ event, members, onClick }: EventBlockProps) {
           onClick(event);
         }
       }}
-      className="rounded px-2 py-1.5 text-white text-xs leading-snug cursor-pointer hover:opacity-90 transition-opacity"
+      className="rounded px-2 py-1.5 text-white text-sm leading-snug cursor-pointer hover:opacity-90 transition-opacity"
       style={{ backgroundColor: bgColor }}
     >
       <div className="font-semibold truncate">
@@ -101,7 +101,7 @@ function ParentCoverageBlock({
           onClick(event);
         }
       }}
-      className="rounded px-2 py-1.5 text-xs leading-snug cursor-pointer hover:opacity-90 transition-opacity"
+      className="rounded px-2 py-1.5 text-sm leading-snug cursor-pointer hover:opacity-90 transition-opacity"
       style={{ backgroundColor: EVENT_COLORS['parent-coverage'], color: '#1a1a1a' }}
     >
       <div className="font-semibold truncate">{EVENT_LABELS['parent-coverage']}</div>
@@ -120,7 +120,7 @@ function ParentCoverageBlock({
 function GapBlock({ event }: { event: CalendarEvent }) {
   return (
     <div
-      className="rounded px-2 py-1.5 text-white text-xs leading-snug"
+      className="rounded px-2 py-1.5 text-white text-sm leading-snug"
       style={{ backgroundColor: EVENT_COLORS['gap'] }}
     >
       <div className="font-semibold">{EVENT_LABELS['gap']}</div>
@@ -184,11 +184,11 @@ export function DayColumn({
         className={`${headerClasses} cursor-pointer`}
         aria-label={`הוסף אירוע ל-${date}`}
       >
-        <p className="text-xs font-medium opacity-80">{hebrewWeekday}</p>
+        <p className="text-sm font-medium opacity-80">{hebrewWeekday}</p>
 
         <p className="text-2xl font-bold leading-tight">{gregorianDay}</p>
 
-        <p className="text-xs opacity-60">{hebrewDate}</p>
+        <p className="text-sm opacity-60">{hebrewDate}</p>
       </div>
 
       <div className="flex flex-col gap-1 p-1 bg-white min-h-[80px]">

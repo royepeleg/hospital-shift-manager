@@ -144,10 +144,10 @@ export function AddEventModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 flex flex-col gap-4">
+      <div className="bg-white w-full h-full md:h-auto md:rounded-2xl md:max-w-sm md:mx-4 shadow-2xl flex flex-col gap-4 overflow-y-auto max-h-[100dvh] p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">הוספת אירוע</h2>
 
@@ -206,7 +206,8 @@ export function AddEventModal({
               value={date}
               onChange={function (e) { setDate(e.target.value); }}
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+              style={{ fontSize: '16px' }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
             />
           </div>
 
@@ -222,7 +223,8 @@ export function AddEventModal({
                 value={startTime}
                 onChange={function (e) { setStartTime(e.target.value); }}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+                style={{ fontSize: '16px' }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
               />
             </div>
 
@@ -236,7 +238,8 @@ export function AddEventModal({
                 value={endTime}
                 onChange={function (e) { setEndTime(e.target.value); }}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+                style={{ fontSize: '16px' }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
               />
             </div>
           </div>
@@ -267,7 +270,8 @@ export function AddEventModal({
               value={title}
               onChange={function (e) { setTitle(e.target.value); }}
               placeholder="הוסף כותרת..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+              style={{ fontSize: '16px' }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
             />
           </div>
 
@@ -282,7 +286,8 @@ export function AddEventModal({
               onChange={function (e) { setNote(e.target.value); }}
               placeholder="הוסף הערה..."
               rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8] resize-none"
+              style={{ fontSize: '16px' }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a73e8] resize-none"
             />
           </div>
 

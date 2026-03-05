@@ -1,4 +1,22 @@
 /**
+ * Returns the ISO date string for Sunday of the current local week.
+ * Week starts on Sunday (getDay() === 0 → offset 0).
+ */
+export function getCurrentWeekSunday(): string {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - dayOfWeek);
+
+  const year = sunday.getFullYear();
+  const month = String(sunday.getMonth() + 1).padStart(2, '0');
+  const day = String(sunday.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Returns true if the given ISO date string matches today's local date.
  */
 export function isToday(isoDate: string): boolean {
@@ -69,8 +87,8 @@ export function formatMobileDayLabel(isoDate: string): string {
 }
 
 /**
- * Formats the week range label for a Monday start date.
- * Example: "03 Mar 2026 — 09 Mar 2026"
+ * Formats the week range label for a Sunday start date.
+ * Example: "01 Mar 2026 — 07 Mar 2026"
  */
 export function formatWeekRangeLabel(weekStartDate: string): string {
   const weekEndDate = addDays(weekStartDate, 6);

@@ -12,24 +12,7 @@ import { WeeklyCalendar } from '@/components/features/WeeklyCalendar';
 import { AddEventModal } from '@/components/features/AddEventModal';
 import { EditEventPanel } from '@/components/features/EditEventPanel';
 import { CalendarEvent, FamilyMember } from '@/types';
-
-/**
- * Computes the ISO date string (YYYY-MM-DD) for Monday of the current local week.
- */
-function getCurrentWeekMonday(): string {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + daysToMonday);
-
-  const year = monday.getFullYear();
-  const month = String(monday.getMonth() + 1).padStart(2, '0');
-  const day = String(monday.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
+import { getCurrentWeekSunday } from '@/utils/dateUtils';
 
 /**
  * Returns today's local date as an ISO string (YYYY-MM-DD).
@@ -57,7 +40,7 @@ export default function Home() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<string>(
-    getCurrentWeekMonday()
+    getCurrentWeekSunday()
   );
 
   const [isModalOpen, setIsModalOpen] = useState(false);

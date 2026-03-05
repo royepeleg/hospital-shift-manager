@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 
 import { CalendarEvent, FamilyMember } from '@/types';
 import { DayColumn } from '@/components/ui/DayColumn';
-import { addDays, formatMobileDayLabel } from '@/utils/dateUtils';
+import { addDays, formatMobileDayLabel, getCurrentWeekSunday } from '@/utils/dateUtils';
 import { formatHebrewWeekRangeLabel } from '@/utils/hebrewDateUtils';
 
 /**
  * Props for the WeeklyCalendar component.
  */
 export interface WeeklyCalendarProps {
-  /** ISO date string for Monday of the displayed week (e.g. '2026-03-03'). */
+  /** ISO date string for Sunday of the displayed week (e.g. '2026-03-01'). */
   weekStartDate: string;
   /** All calendar events to display. */
   events: CalendarEvent[];
@@ -49,23 +49,6 @@ function getTodayISO(): string {
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Computes the ISO date string for Monday of the current local week.
- */
-function getTodayWeekStart(): string {
-  const today = new Date();
-  const dayOfWeek = today.getDay();
-  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + daysToMonday);
-
-  const year = monday.getFullYear();
-  const month = String(monday.getMonth() + 1).padStart(2, '0');
-  const day = String(monday.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
 
 /**
  * Fades in its children on mount; re-mounts (and re-fades) when `dayKey` changes.
@@ -156,7 +139,7 @@ export function WeeklyCalendar({
     if (isMobile) {
       onWeekChange(getTodayISO());
     } else {
-      onWeekChange(getTodayWeekStart());
+      onWeekChange(getCurrentWeekSunday());
     }
   }
 
@@ -192,6 +175,8 @@ export function WeeklyCalendar({
 
   /**
    * Detects swipe direction and navigates one day on swipe >= 50px.
+   * RTL convention: swipe RIGHT (diff < -50) → forward (next day),
+   * swipe LEFT (diff > 50) → back (previous day).
    */
   function handleTouchEnd(e: React.TouchEvent) {
     touchEndX.current = e.changedTouches[0].clientX;
@@ -200,10 +185,10 @@ export function WeeklyCalendar({
 
     if (Math.abs(diff) < 50) return;
 
-    if (diff > 0) {
-      handleNextDay();
-    } else {
+    if (diff > 50) {
       handlePrevDay();
+    } else {
+      handleNextDay();
     }
   }
 
