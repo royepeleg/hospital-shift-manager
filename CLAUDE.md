@@ -131,10 +131,21 @@ src/
 - Same fields as AddEventModal: type, date, times, member, title, note
 - **Delete button** at the bottom of the panel
 
-## Family Member Field
+## Family Member Field — Combobox (strictly enforced)
 
-- In **all forms**, the family member selector is **mandatory** (required)
+- In **all forms**, the family member selector uses a **Combobox** component (`components/ui/Combobox.tsx`)
+- The Combobox allows **both** selecting an existing member from the roster **and** typing a free new name
 - Label is always: **"שם"** (Name)
+- The field is **mandatory** (required)
+
+### Auto-create on new name
+
+- If the typed value does not match any existing member, a new `FamilyMember` is **automatically created in Firestore** with:
+  - `id`: auto-generated
+  - `name`: the typed value
+  - `color`: randomly picked from the preset palette of 8 colors (defined in `components/ui/Combobox.tsx`)
+  - `phone`: `undefined`
+- Auto-creation happens on form submit — not on every keystroke
 
 ## Parent Coverage (critical business logic — auto-generated)
 
