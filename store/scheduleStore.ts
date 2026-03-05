@@ -1,32 +1,33 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
-import { FamilyMember, ShiftAssignment, ShiftType } from '../types/index';
+import { CalendarEvent, FamilyMember, isOvernight } from '../types/index';
+import {
+  splitOvernightEvent,
+  computeParentCoverage,
+  computeGaps,
+} from '../utils/eventUtils';
+import { addDays } from '../utils/dateUtils';
 
-/** Returns the ISO date string (YYYY-MM-DD) for Monday of the current week. */
+/** Returns the ISO date string (YYYY-MM-DD) for Monday of the current local week. */
 function getCurrentWeekMonday(): string {
   const today = new Date();
   const day = today.getDay();
   const daysFromMonday = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
 
+  const monday = new Date(today);
   monday.setDate(today.getDate() + daysFromMonday);
 
-  return monday.toISOString().split('T')[0];
+  const year = monday.getFullYear();
+  const month = String(monday.getMonth() + 1).padStart(2, '0');
+  const dayStr = String(monday.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${dayStr}`;
 }
 
 /** Generates a unique string ID using timestamp and random suffix. */
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-/** Returns the ISO date string for a date offset by `days` from the given ISO date. */
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(isoDate);
-
-  date.setDate(date.getDate() + days);
-
-  return date.toISOString().split('T')[0];
 }
 
 /** Seed data: three family members pre-loaded so the UI is never empty. */
@@ -39,30 +40,36 @@ const SEED_MEMBERS: FamilyMember[] = [
 /** Shape of the full schedule store including state and actions. */
 interface ScheduleState {
   members: FamilyMember[];
-  assignments: ShiftAssignment[];
+  events: CalendarEvent[];
   currentWeekStart: string;
 
   addMember: (member: FamilyMember) => void;
   removeMember: (id: string) => void;
   updateMember: (id: string, updates: Partial<FamilyMember>) => void;
-  assignShift: (
-    date: string,
-    shiftType: ShiftType,
-    familyMemberId: string | null
-  ) => void;
-  unassignShift: (assignmentId: string) => void;
+
+  addEvent: (event: CalendarEvent) => void;
+  removeEvent: (id: string) => void;
+  updateEvent: (id: string, updates: Partial<CalendarEvent>) => void;
+
   setCurrentWeek: (weekStartDate: string) => void;
-  getAssignmentsForWeek: (weekStartDate: string) => ShiftAssignment[];
+
+  /**
+   * Returns all events for the given date — real events merged with
+   * auto-generated parent-coverage and gap blocks — sorted by startTime.
+   */
+  getEventsForDay: (date: string) => CalendarEvent[];
+
+  getEventsForWeek: (weekStartDate: string) => CalendarEvent[];
 }
 
 /**
  * Global schedule store.
- * Manages family members, shift assignments, and the current week in view.
+ * Manages family members, calendar events, and the current week in view.
  */
 export const useScheduleStore = create<ScheduleState>()(
   immer((set, get) => ({
     members: SEED_MEMBERS,
-    assignments: [],
+    events: [],
     currentWeekStart: getCurrentWeekMonday(),
 
     /** Adds a new family member to the roster. */
@@ -72,15 +79,17 @@ export const useScheduleStore = create<ScheduleState>()(
       });
     },
 
-    /** Removes a family member by ID and clears their shift assignments. */
+    /** Removes a family member by ID and unassigns them from all events. */
     removeMember: function (id: string) {
       set(function (state) {
         state.members = state.members.filter(function (m) {
           return m.id !== id;
         });
 
-        state.assignments = state.assignments.filter(function (a) {
-          return a.familyMemberId !== id;
+        state.events.forEach(function (e) {
+          if (e.familyMemberId === id) {
+            e.familyMemberId = null;
+          }
         });
       });
     },
@@ -99,38 +108,49 @@ export const useScheduleStore = create<ScheduleState>()(
     },
 
     /**
-     * Creates or updates the shift assignment for a given date and shift type.
-     * Passing null for familyMemberId effectively unassigns the slot.
+     * Adds a new event to the store.
+     * Overnight events (endTime < startTime) are automatically split into two:
+     * - Day 1: startTime → 23:59
+     * - Day 2: 00:00 → endTime
+     * Both halves share a sharedGroupId for future reference.
      */
-    assignShift: function (
-      date: string,
-      shiftType: ShiftType,
-      familyMemberId: string | null
-    ) {
+    addEvent: function (event: CalendarEvent) {
       set(function (state) {
-        const existing = state.assignments.find(function (a) {
-          return a.date === date && a.shiftType === shiftType;
-        });
+        const withId: CalendarEvent = {
+          ...event,
+          id: event.id || generateId(),
+        };
 
-        if (existing) {
-          existing.familyMemberId = familyMemberId;
+        if (isOvernight(withId)) {
+          const [day1, day2] = splitOvernightEvent(withId);
+
+          state.events.push(day1);
+          state.events.push(day2);
         } else {
-          state.assignments.push({
-            id: generateId(),
-            date,
-            shiftType,
-            familyMemberId,
-          });
+          state.events.push(withId);
         }
       });
     },
 
-    /** Removes a shift assignment record entirely by its ID. */
-    unassignShift: function (assignmentId: string) {
+    /** Removes an event by ID. Only stored (real) events can be removed. */
+    removeEvent: function (id: string) {
       set(function (state) {
-        state.assignments = state.assignments.filter(function (a) {
-          return a.id !== assignmentId;
+        state.events = state.events.filter(function (e) {
+          return e.id !== id;
         });
+      });
+    },
+
+    /** Merges partial updates into the matching stored event record. */
+    updateEvent: function (id: string, updates: Partial<CalendarEvent>) {
+      set(function (state) {
+        const event = state.events.find(function (e) {
+          return e.id === id;
+        });
+
+        if (event) {
+          Object.assign(event, updates);
+        }
       });
     },
 
@@ -142,15 +162,40 @@ export const useScheduleStore = create<ScheduleState>()(
     },
 
     /**
-     * Returns all assignments whose date falls within the 7-day week
-     * starting on weekStartDate (Monday inclusive through Sunday inclusive).
+     * Returns all events for the given date, including auto-generated
+     * parent-coverage blocks (yellow) and gap blocks (red), sorted by startTime.
+     *
+     * Parent-coverage fills any time not covered by a shift event.
+     * Gap blocks appear for any minute not covered by any event at all —
+     * these should never appear in a valid schedule.
      */
-    getAssignmentsForWeek: function (weekStartDate: string) {
-      const weekEndDate = addDays(weekStartDate, 6);
-      const { assignments } = get();
+    getEventsForDay: function (date: string) {
+      const { events } = get();
 
-      return assignments.filter(function (a) {
-        return a.date >= weekStartDate && a.date <= weekEndDate;
+      const realEvents = events.filter(function (e) {
+        return e.date === date;
+      });
+
+      const parentCoverage = computeParentCoverage(date, realEvents);
+
+      const allEvents = [...realEvents, ...parentCoverage];
+      const gaps = computeGaps(date, allEvents);
+
+      return [...allEvents, ...gaps].sort(function (a, b) {
+        return a.startTime.localeCompare(b.startTime);
+      });
+    },
+
+    /**
+     * Returns all stored (real) events whose date falls within the 7-day week
+     * starting on weekStartDate (inclusive). Does not include auto-generated events.
+     */
+    getEventsForWeek: function (weekStartDate: string) {
+      const weekEndDate = addDays(weekStartDate, 6);
+      const { events } = get();
+
+      return events.filter(function (e) {
+        return e.date >= weekStartDate && e.date <= weekEndDate;
       });
     },
   }))
