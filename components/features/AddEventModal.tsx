@@ -9,6 +9,8 @@ import {
   EVENT_LABELS,
   FamilyMember,
 } from '@/types';
+import { Combobox, MEMBER_COLOR_PALETTE } from '@/components/ui/Combobox';
+import { addMember } from '@/src/lib/firestore';
 
 /** Ordered list of event types rendered in the type selector (excludes auto-generated types). */
 const EVENT_TYPE_OPTIONS: EventType[] = ['shift', 'treatment', 'visit', 'parent-note'];
@@ -33,6 +35,18 @@ function generateId(): string {
 }
 
 /**
+ * Removes all keys with undefined values from an object before
+ * sending to Firestore, which does not accept undefined.
+ */
+function stripUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(function ([_, v]) {
+      return v !== undefined;
+    })
+  ) as Partial<T>;
+}
+
+/**
  * Modal dialog for adding a new calendar event.
  * Supports all four user-facing event types, flexible time ranges, required member
  * assignment, title, and notes. Overnight events show an informational warning.
@@ -47,20 +61,22 @@ export function AddEventModal({
   const [date, setDate] = useState(defaultDate);
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('16:00');
-  const [familyMemberId, setFamilyMemberId] = useState('');
+  const [memberName, setMemberName] = useState('');
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const isOvernightEvent =
     startTime !== '' && endTime !== '' && endTime < startTime;
 
   /**
    * Validates fields and dispatches the new event via onAdd.
-   * familyMemberId is required — submission is blocked if not selected.
+   * familyMemberId is resolved from memberName — a new member is created if needed.
    */
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
     setError(null);
 
     if (!date) {
@@ -73,9 +89,33 @@ export function AddEventModal({
       return;
     }
 
-    if (!familyMemberId) {
+    if (!memberName.trim()) {
       setError('יש לבחור שם');
       return;
+    }
+
+    const existing = members.find(
+      (m) => m.name.toLowerCase() === memberName.trim().toLowerCase()
+    );
+
+    let familyMemberId: string;
+
+    if (existing) {
+      familyMemberId = existing.id;
+    } else {
+      const randomColor =
+        MEMBER_COLOR_PALETTE[
+          Math.floor(Math.random() * MEMBER_COLOR_PALETTE.length)
+        ];
+
+      const newMember: FamilyMember = {
+        id: Date.now().toString(),
+        name: memberName.trim(),
+        color: randomColor,
+      };
+
+      await addMember(newMember);
+      familyMemberId = newMember.id;
     }
 
     const newEvent: CalendarEvent = {
@@ -89,7 +129,7 @@ export function AddEventModal({
       note: note.trim() || undefined,
     };
 
-    onAdd(newEvent);
+    onAdd(stripUndefined(newEvent) as CalendarEvent);
     onClose();
   }
 
@@ -208,28 +248,13 @@ export function AddEventModal({
           )}
 
           {/* Family member selector — required */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              שם
-            </label>
-
-            <select
-              value={familyMemberId}
-              onChange={function (e) { setFamilyMemberId(e.target.value); }}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
-            >
-              <option value="">בחר שם...</option>
-
-              {members.map(function (m) {
-                return (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+          <Combobox
+            members={members}
+            value={memberName}
+            onChange={setMemberName}
+            required={true}
+            submitted={submitted}
+          />
 
           {/* Optional title */}
           <div>
