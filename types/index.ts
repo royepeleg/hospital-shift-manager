@@ -32,7 +32,7 @@ export const EVENT_LABELS: Record<EventType, string> = {
   treatment: 'טיפול',
   visit: 'ביקור',
   'parent-note': 'הורים',
-  'parent-coverage': 'הורים עם המטופל',
+  'parent-coverage': 'הורים עם נווה',
   gap: 'חסר כיסוי משמרת',
 };
 

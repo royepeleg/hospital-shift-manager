@@ -47,6 +47,28 @@ export function formatDayLabel(isoDate: string): string {
 }
 
 /**
+ * Formats a single day label for mobile view in Hebrew.
+ * Example: "יום ראשון, 4 במרץ 2026"
+ */
+export function formatMobileDayLabel(isoDate: string): string {
+  const date = new Date(isoDate + 'T00:00:00Z');
+
+  const weekday = new Intl.DateTimeFormat('he-IL', {
+    weekday: 'long',
+    timeZone: 'UTC',
+  }).format(date);
+
+  const dayMonthYear = new Intl.DateTimeFormat('he-IL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+
+  return `${weekday}, ${dayMonthYear}`;
+}
+
+/**
  * Formats the week range label for a Monday start date.
  * Example: "03 Mar 2026 — 09 Mar 2026"
  */

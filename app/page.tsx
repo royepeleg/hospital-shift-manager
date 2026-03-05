@@ -70,11 +70,15 @@ export default function Home() {
    */
   useEffect(
     function () {
-      const unsubscribeMembers = subscribeToMembers(function (data: FamilyMember[]) {
+      const unsubscribeMembers = subscribeToMembers(function (
+        data: FamilyMember[]
+      ) {
         setMembers(data);
       });
 
-      const unsubscribeEvents = subscribeToEvents(function (data: CalendarEvent[]) {
+      const unsubscribeEvents = subscribeToEvents(function (
+        data: CalendarEvent[]
+      ) {
         setEvents(data);
       });
 
@@ -146,7 +150,7 @@ export default function Home() {
           מנהל משמרות משפחתי
         </h1>
 
-        <p className="text-sm text-blue-100 mt-0.5">לוח תורנויות ליד המיטה</p>
+        <p className="text-sm text-blue-100 mt-0.5">לוח תורנויות עם נאביק</p>
       </header>
 
       <main className="flex-1 w-full">

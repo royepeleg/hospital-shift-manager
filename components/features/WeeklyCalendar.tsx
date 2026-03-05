@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { CalendarEvent, FamilyMember } from '@/types';
 import { DayColumn } from '@/components/ui/DayColumn';
-import { addDays } from '@/utils/dateUtils';
-import { formatHebrewWeekRangeLabel, getHebrewWeekday } from '@/utils/hebrewDateUtils';
+import { addDays, formatMobileDayLabel } from '@/utils/dateUtils';
+import { formatHebrewWeekRangeLabel } from '@/utils/hebrewDateUtils';
 
 /**
  * Props for the WeeklyCalendar component.
@@ -38,7 +38,7 @@ function generateWeekDates(weekStartDate: string): string[] {
 }
 
 /**
- * Returns today's local date as an ISO string (YYYY-MM-DD).
+ * Returns today's date as a YYYY-MM-DD ISO string.
  */
 function getTodayISO(): string {
   const today = new Date();
@@ -68,9 +68,43 @@ function getTodayWeekStart(): string {
 }
 
 /**
+ * Fades in its children on mount; re-mounts (and re-fades) when `dayKey` changes.
+ */
+function FadeInWrapper({
+  children,
+  dayKey,
+}: {
+  children: React.ReactNode;
+  dayKey: string;
+}) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(
+    function () {
+      const id = requestAnimationFrame(function () {
+        setVisible(true);
+      });
+
+      return function () {
+        cancelAnimationFrame(id);
+      };
+    },
+    [dayKey]
+  );
+
+  return (
+    <div
+      className={`transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
  * Renders the full weekly calendar with week view (desktop) and day view (mobile).
  * - Week view: 7 DayColumn components in a horizontal scroll grid.
- * - Day view: a single DayColumn with prev/next day navigation arrows.
+ * - Day view: a single DayColumn with prev/next day navigation arrows and swipe support.
  * A toggle button (שבועי / יומי) is visible on mobile only.
  */
 export function WeeklyCalendar({
@@ -86,7 +120,9 @@ export function WeeklyCalendar({
   const weekRangeLabel = formatHebrewWeekRangeLabel(weekStartDate);
 
   const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
-  const [selectedDay, setSelectedDay] = useState<string>(getTodayISO());
+
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
 
   /**
    * Detects mobile on mount and switches to day view if needed.
@@ -112,25 +148,30 @@ export function WeeklyCalendar({
   }
 
   /**
-   * Navigates to the week containing today and resets selected day to today.
+   * Navigates to today: exact date on mobile, Monday of current week on desktop.
    */
   function handleGoToToday() {
-    onWeekChange(getTodayWeekStart());
-    setSelectedDay(getTodayISO());
+    const isMobile = window.innerWidth < 768;
+
+    if (isMobile) {
+      onWeekChange(getTodayISO());
+    } else {
+      onWeekChange(getTodayWeekStart());
+    }
   }
 
   /**
-   * Navigates to the previous day in day view.
+   * Navigates one day back in day view.
    */
   function handlePrevDay() {
-    setSelectedDay(addDays(selectedDay, -1));
+    onWeekChange(addDays(weekStartDate, -1));
   }
 
   /**
-   * Navigates to the next day in day view.
+   * Navigates one day forward in day view.
    */
   function handleNextDay() {
-    setSelectedDay(addDays(selectedDay, 1));
+    onWeekChange(addDays(weekStartDate, 1));
   }
 
   /**
@@ -140,6 +181,30 @@ export function WeeklyCalendar({
     setViewMode(function (prev) {
       return prev === 'week' ? 'day' : 'week';
     });
+  }
+
+  /**
+   * Records the X position where a touch began.
+   */
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.changedTouches[0].clientX;
+  }
+
+  /**
+   * Detects swipe direction and navigates one day on swipe >= 50px.
+   */
+  function handleTouchEnd(e: React.TouchEvent) {
+    touchEndX.current = e.changedTouches[0].clientX;
+
+    const diff = touchStartX.current - touchEndX.current;
+
+    if (Math.abs(diff) < 50) return;
+
+    if (diff > 0) {
+      handleNextDay();
+    } else {
+      handlePrevDay();
+    }
   }
 
   return (
@@ -157,7 +222,7 @@ export function WeeklyCalendar({
         <div className="flex items-center gap-1">
           <button
             onClick={handlePrevWeek}
-            className="px-3 py-1 rounded text-[#1a73e8] font-medium hover:bg-[#e8f0fe] transition-colors"
+            className="hidden md:block px-3 py-1 rounded text-[#1a73e8] font-medium hover:bg-[#e8f0fe] transition-colors"
             aria-label="שבוע קודם"
           >
             →
@@ -165,7 +230,7 @@ export function WeeklyCalendar({
 
           <button
             onClick={handleNextWeek}
-            className="px-3 py-1 rounded text-[#1a73e8] font-medium hover:bg-[#e8f0fe] transition-colors"
+            className="hidden md:block px-3 py-1 rounded text-[#1a73e8] font-medium hover:bg-[#e8f0fe] transition-colors"
             aria-label="שבוע הבא"
           >
             ←
@@ -173,7 +238,7 @@ export function WeeklyCalendar({
         </div>
 
         <span className="text-sm font-semibold text-gray-700 flex-1 min-w-0">
-          {weekRangeLabel}
+          {viewMode === 'day' ? formatMobileDayLabel(weekStartDate) : weekRangeLabel}
         </span>
 
         {/* View toggle — visible on mobile only */}
@@ -188,7 +253,11 @@ export function WeeklyCalendar({
 
       {/* Day view — mobile single-column layout */}
       {viewMode === 'day' && (
-        <div className="flex flex-col flex-1">
+        <div
+          className="flex flex-col flex-1"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           {/* Day navigation */}
           <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-100">
             <button
@@ -198,13 +267,6 @@ export function WeeklyCalendar({
             >
               →
             </button>
-
-            <span className="text-sm font-medium text-gray-700">
-              {getHebrewWeekday(selectedDay)},{' '}
-              {new Date(selectedDay).getUTCDate()}/
-              {new Date(selectedDay).getUTCMonth() + 1}/
-              {new Date(selectedDay).getUTCFullYear()}
-            </span>
 
             <button
               onClick={handleNextDay}
@@ -216,15 +278,21 @@ export function WeeklyCalendar({
           </div>
 
           <div className="p-3">
-            <DayColumn
-              date={selectedDay}
-              events={events.filter(function (e: CalendarEvent) {
-                return e.date === selectedDay && e.type !== 'parent-coverage' && e.type !== 'gap';
-              })}
-              members={members}
-              onAddEvent={onDayClick}
-              onEventClick={onEventClick}
-            />
+            <FadeInWrapper key={weekStartDate} dayKey={weekStartDate}>
+              <DayColumn
+                date={weekStartDate}
+                events={events.filter(function (e: CalendarEvent) {
+                  return (
+                    e.date === weekStartDate &&
+                    e.type !== 'parent-coverage' &&
+                    e.type !== 'gap'
+                  );
+                })}
+                members={members}
+                onAddEvent={onDayClick}
+                onEventClick={onEventClick}
+              />
+            </FadeInWrapper>
           </div>
         </div>
       )}
