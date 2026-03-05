@@ -6,7 +6,6 @@ import { CalendarEvent, FamilyMember } from '@/types';
 import { DayColumn } from '@/components/ui/DayColumn';
 import { addDays } from '@/utils/dateUtils';
 import { formatHebrewWeekRangeLabel, getHebrewWeekday } from '@/utils/hebrewDateUtils';
-import { useScheduleStore } from '@/store/scheduleStore';
 
 /**
  * Props for the WeeklyCalendar component.
@@ -14,6 +13,8 @@ import { useScheduleStore } from '@/store/scheduleStore';
 export interface WeeklyCalendarProps {
   /** ISO date string for Monday of the displayed week (e.g. '2026-03-03'). */
   weekStartDate: string;
+  /** All calendar events to display. */
+  events: CalendarEvent[];
   /** Full list of family members used to resolve event owners. */
   members: FamilyMember[];
   /** Called when the user clicks a day column header to add an event. Receives the day's ISO date. */
@@ -74,12 +75,12 @@ function getTodayWeekStart(): string {
  */
 export function WeeklyCalendar({
   weekStartDate,
+  events,
   members,
   onDayClick,
   onWeekChange,
   onEventClick,
 }: WeeklyCalendarProps) {
-  const getEventsForDay = useScheduleStore((s) => s.getEventsForDay);
 
   const weekDates = generateWeekDates(weekStartDate);
   const weekRangeLabel = formatHebrewWeekRangeLabel(weekStartDate);
@@ -217,8 +218,8 @@ export function WeeklyCalendar({
           <div className="p-3">
             <DayColumn
               date={selectedDay}
-              events={getEventsForDay(selectedDay).filter(function (e) {
-                return e.type !== 'parent-coverage' && e.type !== 'gap';
+              events={events.filter(function (e: CalendarEvent) {
+                return e.date === selectedDay && e.type !== 'parent-coverage' && e.type !== 'gap';
               })}
               members={members}
               onAddEvent={onDayClick}
@@ -233,8 +234,8 @@ export function WeeklyCalendar({
         <div className="overflow-x-auto">
           <div className="grid md:grid-cols-7 grid-flow-col auto-cols-[120px] gap-2 p-3 min-w-max md:min-w-0">
             {weekDates.map(function (date) {
-              const dayEvents = getEventsForDay(date).filter(function (e) {
-                return e.type !== 'parent-coverage' && e.type !== 'gap';
+              const dayEvents = events.filter(function (e: CalendarEvent) {
+                return e.date === date && e.type !== 'parent-coverage' && e.type !== 'gap';
               });
 
               return (

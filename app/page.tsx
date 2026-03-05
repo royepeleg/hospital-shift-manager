@@ -1,14 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
+import {
+  subscribeToMembers,
+  subscribeToEvents,
+  addEvent as firestoreAddEvent,
+} from '@/src/lib/firestore';
 import { useScheduleStore } from '@/store/scheduleStore';
 import { WeeklyCalendar } from '@/components/features/WeeklyCalendar';
 import { AddEventModal } from '@/components/features/AddEventModal';
 import { EditEventPanel } from '@/components/features/EditEventPanel';
-import { CalendarEvent } from '@/types';
+import { CalendarEvent, FamilyMember } from '@/types';
 
-/** Returns today's local date as an ISO string (YYYY-MM-DD). */
+/**
+ * Computes the ISO date string (YYYY-MM-DD) for Monday of the current local week.
+ */
+function getCurrentWeekMonday(): string {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + daysToMonday);
+
+  const year = monday.getFullYear();
+  const month = String(monday.getMonth() + 1).padStart(2, '0');
+  const day = String(monday.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns today's local date as an ISO string (YYYY-MM-DD).
+ */
 function getTodayISO(): string {
   const today = new Date();
   const year = today.getFullYear();
@@ -19,19 +44,49 @@ function getTodayISO(): string {
 }
 
 /**
- * Home page — wires the Zustand schedule store to the WeeklyCalendar component.
- * Displays a branded Hebrew header, the full weekly calendar, a floating ➕ button,
- * the AddEventModal for creating events, and the EditEventPanel for viewing/editing.
+ * Home page — subscribes to Firestore collections and wires live data into the UI.
+ * Renders a branded Hebrew header, the weekly calendar, a floating add button,
+ * the AddEventModal for creating events, and the EditEventPanel for editing.
  */
 export default function Home() {
-  const currentWeekStart = useScheduleStore((s) => s.currentWeekStart);
-  const members = useScheduleStore((s) => s.members);
-  const setCurrentWeek = useScheduleStore((s) => s.setCurrentWeek);
-  const addEvent = useScheduleStore((s) => s.addEvent);
+  const isLoading = useScheduleStore((s) => s.isLoading);
+  const setLoading = useScheduleStore((s) => s.setLoading);
+  const selectedEvent = useScheduleStore((s) => s.selectedEvent);
+  const setSelectedEvent = useScheduleStore((s) => s.setSelectedEvent);
+
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [currentWeekStart, setCurrentWeekStart] = useState<string>(
+    getCurrentWeekMonday()
+  );
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDefaultDate, setModalDefaultDate] = useState(getTodayISO());
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+
+  /**
+   * Subscribes to Firestore members and events on mount.
+   * Marks loading as done once both listeners are registered.
+   * Returns a cleanup that unsubscribes both listeners on unmount.
+   */
+  useEffect(
+    function () {
+      const unsubscribeMembers = subscribeToMembers(function (data: FamilyMember[]) {
+        setMembers(data);
+      });
+
+      const unsubscribeEvents = subscribeToEvents(function (data: CalendarEvent[]) {
+        setEvents(data);
+      });
+
+      setLoading(false);
+
+      return function () {
+        unsubscribeMembers();
+        unsubscribeEvents();
+      };
+    },
+    [setLoading]
+  );
 
   /**
    * Opens the Add Event modal pre-filled with the given date.
@@ -49,17 +104,17 @@ export default function Home() {
   }
 
   /**
-   * Passes the new event to the store (overnight events are auto-split there).
+   * Persists the new event to Firestore.
    */
-  function handleAddEvent(event: CalendarEvent) {
-    addEvent(event);
+  async function handleAddEvent(event: CalendarEvent) {
+    await firestoreAddEvent(event);
   }
 
   /**
-   * Updates the store with the newly selected week start date.
+   * Updates the displayed week start date.
    */
   function handleWeekChange(newWeekStartDate: string) {
-    setCurrentWeek(newWeekStartDate);
+    setCurrentWeekStart(newWeekStartDate);
   }
 
   /**
@@ -76,19 +131,28 @@ export default function Home() {
     setSelectedEvent(null);
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f6f8fc] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-[#1a73e8] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] flex flex-col">
-      <header className="bg-white shadow-sm px-6 py-3">
-        <h1 className="text-xl font-semibold text-gray-800 tracking-tight">
+      <header className="bg-[#1a73e8] px-6 py-3 shadow-md">
+        <h1 className="text-xl font-semibold text-white tracking-tight">
           מנהל משמרות משפחתי
         </h1>
 
-        <p className="text-sm text-gray-500 mt-0.5">לוח תורנויות ליד המיטה</p>
+        <p className="text-sm text-blue-100 mt-0.5">לוח תורנויות ליד המיטה</p>
       </header>
 
       <main className="flex-1 w-full">
         <WeeklyCalendar
           weekStartDate={currentWeekStart}
+          events={events}
           members={members}
           onDayClick={handleOpenModal}
           onWeekChange={handleWeekChange}
@@ -97,7 +161,9 @@ export default function Home() {
       </main>
 
       <button
-        onClick={function () { handleOpenModal(); }}
+        onClick={function () {
+          handleOpenModal();
+        }}
         className="fixed bottom-6 end-6 w-14 h-14 rounded-full bg-[#1a73e8] text-white text-3xl shadow-lg hover:bg-[#1557b0] active:scale-95 transition-all flex items-center justify-center z-40"
         aria-label="הוסף אירוע"
       >
