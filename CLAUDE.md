@@ -149,22 +149,29 @@ src/
 
 ## Parent Coverage (critical business logic — auto-generated)
 
-- Any time slot in a day **not covered by a shift event** is automatically filled with a `parent-coverage` event
+- **Parent coverage is the DEFAULT state** — any time slot not covered by a `shift`, `treatment`, or `visit` is automatically assumed to be covered by the parents
 - `parent-coverage` is a special `CalendarEvent`:
   - `type`: `'parent-coverage'`
   - `color`: `#fbbc04` (Google yellow)
   - `label`: הורים עם המטופל
   - `familyMemberId`: `'parents'` (fixed special ID)
 - Parent coverage events are **auto-generated** — never manually created by users
+- Parent coverage is **never a problem** — it is always valid
 - Generation logic lives in `utils/eventUtils.ts`
 
 ## Shift Gap Rule (critical business logic)
 
-- A **shift gap** is a time slot that has NO shift event AND NO parent-coverage event
-- This should never happen in a valid schedule
+- A **shift gap** (חסר כיסוי משמרת) occurs **only** when ALL of the following are true:
+  1. A time slot has **no** `shift`, `treatment`, or `visit` event covering it
+  2. **At least one `parent-note` event** exists during that same time slot (meaning both parents are busy and cannot be with the patient)
+- In all other uncovered slots — show `parent-coverage` (yellow), never a gap
 - Shift gaps are rendered as a **red block** inline in the day timeline with text: **חסר כיסוי משמרת**
-- Gap calculation is per day: any minute not covered by any event is a gap
-- Gap blocks appear between events in the day column
+- Gap calculation is per day; gap blocks appear inline between events in the day column
+
+### Zero-duration block rule (strictly enforced)
+
+- **Never** create any auto-generated block (`parent-coverage` or gap) where `startTime === endTime`
+- **Never** create a trailing block when the last event ends at or after `23:59`
 
 ## Firebase & Data Layer (strictly enforced)
 
