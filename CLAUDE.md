@@ -119,9 +119,18 @@ src/
 
 - Calendar has two view modes: **week** (desktop) and **day** (mobile)
 - On mobile (below `md` breakpoint): show **single day view** — one column, full width, portrait layout
-- Day view includes left/right navigation arrows to move between days
 - Week view stays on desktop (`md+`) as horizontal scroll grid with 120px columns
 - A view toggle button labeled **שבועי / יומי** is visible on mobile only
+
+### Mobile Day Navigation
+
+- The ← → arrow buttons navigate one day at a time
+- Swiping left → move one day forward; swiping right → move one day back
+- Swipe detection uses native touch events (`onTouchStart`, `onTouchEnd`) — no external library
+- Minimum swipe distance: **50px** to trigger navigation
+- The week range label updates to show just the current day in mobile view
+  Format: `"יום ראשון, 4 במרץ 2026"` (day name + Gregorian date in Hebrew)
+- On desktop (`md+`): behavior unchanged — week view with week navigation
 
 ## Event Editing — EditEventPanel
 
